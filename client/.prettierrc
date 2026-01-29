@@ -1,0 +1,22 @@
+{
+  "printWidth": 120,
+  "arrowParens": "always",
+  "semi": false,
+  "tabWidth": 2,
+  "endOfLine": "auto",
+  "plugins": [
+    "@trivago/prettier-plugin-sort-imports",
+    "prettier-plugin-tailwindcss"
+  ],
+  "importOrder": [
+    "^react$",
+    "^react-dom$",
+    "<THIRD_PARTY_MODULES>",
+    "^@/(.*)$",
+    "^[./]"
+  ],
+  "importOrderSeparation": true,
+  "importOrderSortSpecifiers": true,
+  "COMMENT:": "// A boolean value to enable or disable sorting the namespace specifiers to the top of the import group.",
+  "importOrderGroupNamespaceSpecifiers": true
+}

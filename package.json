@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "pnpm --parallel run dev",
+    "dev:client": "pnpm run dev --filter client",
     "build": "pnpm --recursive run build",
     "lint": "pnpm --recursive run lint",
     "format": "prettier --write ."

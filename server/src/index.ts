@@ -1,7 +1,7 @@
-import express, { Request, Response } from 'express'
-import dotenv from 'dotenv'
-import cors from 'cors'
-import helmet from 'helmet'
+import express, { Request, Response } from "express"
+import dotenv from "dotenv"
+import cors from "cors"
+import helmet from "helmet"
 
 dotenv.config()
 
@@ -14,12 +14,12 @@ app.use(cors())
 app.use(express.json())
 
 // Routes
-app.get('/', (req: Request, res: Response) => {
-  res.json({ message: 'Welcome to the Express + TypeScript Backend!' })
+app.get("/", (req: Request, res: Response) => {
+  res.json({ message: "Welcome to the Express + TypeScript Backend!" })
 })
 
-app.get('/health', (req: Request, res: Response) => {
-  res.status(200).send('OK')
+app.get("/health", (req: Request, res: Response) => {
+  res.status(200).send("OK")
 })
 
 // Start Server
