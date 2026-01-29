@@ -1,6 +1,7 @@
 node_modules
 .env
-.env.local# Logs
+.env.local# 
+Logs
 logs
 *.log
 npm-debug.log*
