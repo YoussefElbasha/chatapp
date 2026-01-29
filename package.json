@@ -1,0 +1,9 @@
+{
+  "name": "chatapp",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --parallel run dev",
+    "build": "pnpm --recursive run build",
+    "lint": "pnpm --recursive run lint"
+  }
+}
