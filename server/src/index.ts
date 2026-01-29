@@ -1,11 +1,23 @@
-import express, { Request, Response } from "express"
-import dotenv from "dotenv"
-import cors from "cors"
-import helmet from "helmet"
+import express, { Request, Response } from 'express'
+import { createServer } from 'http'
+import { initSocket } from "./socket/index.js";
+import dotenv from 'dotenv'
+import cors from 'cors'
+import helmet from 'helmet'
 
 dotenv.config()
 
 const app = express()
+
+const httpServer = createServer(app);
+
+// Initialize Socket.io
+initSocket(httpServer);
+
+httpServer.listen(8000, () => {
+  console.log("Server running on port 8000");
+});
+
 const PORT = process.env.PORT || 5000
 
 // Middleware
