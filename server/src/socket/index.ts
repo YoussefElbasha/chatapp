@@ -1,43 +1,36 @@
-// src/socket/index.ts
+import type { Server as HttpServer } from 'http'
 import { Server } from 'socket.io'
-import { Server as HttpServer } from 'http' // or https
-// import { authMiddleware } from './middleware.js'
-import { registerChatHandlers } from './handlers/chat.js'
-import {
-  ClientToServerEvents,
-  ServerToClientEvents,
-  InterServerEvents,
-  SocketData,
-} from './types.js'
 
-export const initSocket = (httpServer: HttpServer) => {
-  const io = new Server<
-    ClientToServerEvents,
-    ServerToClientEvents,
-    InterServerEvents,
-    SocketData
-  >(httpServer, {
+import type { ClientToServerEvents, ServerToClientEvents, SocketData } from '../types/socket'
+import { registerSocketEvents } from './events'
+
+export const initSocket = (
+  httpServer: HttpServer,
+): Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData> => {
+  const io = new Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>(httpServer, {
     cors: {
-      origin: 'http://localhost:3000', // Your React/Next.js Client
-      methods: ['GET', 'POST'],
+      origin: '*',
     },
   })
 
-  // Apply Auth
-  // io.use(authMiddleware)
+  io.use((socket, next) => {
+    const { userId } = socket.handshake.auth
+
+    if (typeof userId !== 'string') {
+      next(new Error('Unauthorized'))
+      return
+    }
+
+    socket.data.userId = userId
+    next()
+  })
 
   io.on('connection', (socket) => {
-    console.log(`User connected: ${socket.data.username} (${socket.id})`)
+    const userId = socket.handshake.auth.userId as string
 
-    // Join a personal room for "User Specific" notifications (Friend requests, DM notifications)
-    socket.join(`user_${socket.data.userId}`)
+    void socket.join(`user:${userId}`)
 
-    // Register handlers
-    registerChatHandlers(io, socket)
-
-    socket.on('disconnect', () => {
-      console.log('User disconnected')
-    })
+    registerSocketEvents(io, socket)
   })
 
   return io

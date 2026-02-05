@@ -1,76 +1,65 @@
-import js from "@eslint/js";
-import tseslint from "typescript-eslint";
-import globals from "globals";
-import security from "eslint-plugin-security";
-import nodePlugin from "eslint-plugin-n";
-import simpleImportSort from "eslint-plugin-simple-import-sort";
+import js from '@eslint/js'
+import tseslint from 'typescript-eslint'
+import globals from 'globals'
+import security from 'eslint-plugin-security'
+import nodePlugin from 'eslint-plugin-n'
+import simpleImportSort from 'eslint-plugin-simple-import-sort'
+import prettier from 'eslint-config-prettier'
 
 export default tseslint.config(
-  { ignores: ["dist", "node_modules", "coverage"] },
+  { ignores: ['dist', 'node_modules', 'coverage'] },
 
-  // 1. Base JavaScript Rules
   js.configs.recommended,
-
-  // 2. Node.js Specific Best Practices (Files, Imports, etc.)
-  nodePlugin.configs["flat/recommended-script"],
-
-  // 3. Security Vulnerability Checks
+  nodePlugin.configs['flat/recommended-script'],
   security.configs.recommended,
-
-  // 4. Strict TypeScript Rules (Type-Checked)
-  // This replaces the basic 'recommended' with 'strict-type-checked'
   ...tseslint.configs.strictTypeChecked,
-  ...tseslint.configs.stylisticTypeChecked,
 
   {
-    files: ["**/*.ts"],
+    files: ['**/*.ts'],
     languageOptions: {
       ecmaVersion: 2022,
       globals: globals.node,
       parserOptions: {
-        // ESSENTIAL for Type-Checked rules: tells ESLint where your types are
-        project: "./tsconfig.json",
+        project: './tsconfig.json',
         tsconfigRootDir: import.meta.dirname,
       },
     },
     plugins: {
-      "simple-import-sort": simpleImportSort,
+      'simple-import-sort': simpleImportSort,
     },
     rules: {
-      // --- Professional Overrides ---
+      'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/await-thenable': 'error',
 
-      // Force standard Console logging to warn (allow generic 'error'/'info')
-      "no-console": ["warn", { allow: ["warn", "error", "info"] }],
+      'simple-import-sort/imports': 'error',
+      'simple-import-sort/exports': 'error',
 
-      // Enforce proper Error handling in Promises
-      "@typescript-eslint/no-floating-promises": "error",
-      "@typescript-eslint/await-thenable": "error",
+      'n/no-missing-import': 'off',
 
-      // Enforce Clean Imports (Auto-sorts imports)
-      "simple-import-sort/imports": "error",
-      "simple-import-sort/exports": "error",
-
-      // Node.js specific: Ensure imports actually resolve (helps with module resolution issues)
-      "n/no-missing-import": "off", // TypeScript handles this usually, so we turn off the ESLint version if it conflicts
-      
-      // Allow unused vars if they start with _ (standard convention)
-      "@typescript-eslint/no-unused-vars": [
-        "error",
-        { 
-          argsIgnorePattern: "^_",
-          varsIgnorePattern: "^_",
-          caughtErrorsIgnorePattern: "^_"
-        }
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
       ],
-      
-      // Enforce using 'type' for type imports (cleaner transpilation)
-      "@typescript-eslint/consistent-type-imports": [
-        "error",
-        { fixStyle: "inline-type-imports" }
+
+      '@typescript-eslint/consistent-type-imports': [
+        'error',
+        { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
       ],
-      
-      // Disable some overly strict stylistic rules if they are annoying
-      "@typescript-eslint/prefer-nullish-coalescing": "warn", // Warns to use ?? instead of ||
+
+      '@typescript-eslint/prefer-nullish-coalescing': 'off',
+      '@typescript-eslint/no-misused-promises': [
+        'error',
+        { checksVoidReturn: false },
+      ],
+      '@typescript-eslint/no-confusing-void-expression': 'off',
+      '@typescript-eslint/restrict-template-expressions': 'off',
     },
-  }
-);
+  },
+
+  prettier,
+)
