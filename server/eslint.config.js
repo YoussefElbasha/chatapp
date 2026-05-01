@@ -24,6 +24,11 @@ export default tseslint.config(
         tsconfigRootDir: import.meta.dirname,
       },
     },
+    settings: {
+      node: {
+        version: '>=16.6.0', // or '>=18.0.0'
+      },
+    },
     plugins: {
       'simple-import-sort': simpleImportSort,
     },
@@ -54,8 +59,8 @@ export default tseslint.config(
       '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: false }],
       '@typescript-eslint/no-confusing-void-expression': 'off',
       '@typescript-eslint/restrict-template-expressions': 'off',
-      '@typescript-eslint/no-unsafe-assignment': 'off',
-      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'on',
+      '@typescript-eslint/no-unsafe-call': 'on',
     },
   },
 

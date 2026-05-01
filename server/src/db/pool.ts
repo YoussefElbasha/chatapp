@@ -1,8 +1,18 @@
-import { Pool } from "pg";
+import { Pool } from 'pg'
 
-export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  max: 10,
-  idleTimeoutMillis: 30_000,
-  connectionTimeoutMillis: 2_000,
-});
+let pool: Pool
+
+export const getPool = () => {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (!pool) {
+    pool = new Pool({
+      host: 'localhost',
+      port: 5432,
+      user: 'discord',
+      password: process.env.DB_PASSWORD,
+      database: 'discord_clone',
+    })
+  }
+
+  return pool
+}
