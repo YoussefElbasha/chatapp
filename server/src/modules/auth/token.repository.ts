@@ -16,7 +16,7 @@ export const findRefreshTokenByHash = async (tokenHash: string): Promise<Refresh
 
   const { rows } = await pool.query<RefreshTokenDb>(
     `SELECT id, user_id AS "userId", token_hash AS "tokenHash", expires_at AS "expiresAt",
-            ip_address AS "ipAddress", user_agent AS "userAgent", created_at AS "createdAt"
+     ip_address AS "ipAddress", user_agent AS "userAgent", created_at AS "createdAt"
      FROM refresh_tokens
      WHERE token_hash = $1`,
     [tokenHash],

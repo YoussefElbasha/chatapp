@@ -1,5 +1,5 @@
 import dotenv from 'dotenv'
-dotenv.config() // ✅ first thing
+dotenv.config()
 import cookieParser from 'cookie-parser'
 import cors from 'cors'
 import express, { type Request, type Response } from 'express'

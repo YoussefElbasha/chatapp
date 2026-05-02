@@ -2,18 +2,18 @@ import bcrypt from 'bcrypt'
 import { createUser, findUserByEmail } from 'modules/user/user.repository'
 import { AppError } from 'shared/utils/errors/app-error'
 
-import type { RegisterDto } from './auth.schema'
+import type { LoginDto, RegisterDto } from './auth.schema'
 import { CreatedUser } from 'modules/user/user.types'
-import { generateTokenPair } from './token.service';
-import { TokenPair } from './token.types';
+import { generateTokenPair } from './token.service'
+import { TokenPair } from './token.types'
 
-//const DUMMY_BCRYPT_HASH = '$2b$12$fE35fVzqo6vVxL0FpaB7GO8dlVZWpALxLJHUTJJPIFmU0Hjfg89nW'
+const DUMMY_BCRYPT_HASH = '$2b$12$fE35fVzqo6vVxL0FpaB7GO8dlVZWpALxLJHUTJJPIFmU0Hjfg89nW'
 
 const MAX_DISCRIMINATOR_ATTEMPTS = 5
 
 export const registerService = async (
   dto: RegisterDto,
-  meta?: { ipAddress?: string; userAgent?: string }
+  meta?: { ipAddress?: string; userAgent?: string },
 ): Promise<{ user: CreatedUser } & TokenPair> => {
   const { email, password, username, displayName } = dto
 
@@ -43,20 +43,20 @@ export const registerService = async (
   return { user, ...tokens }
 }
 
-// export const loginService = async (email: string, password: string) => {
-//   if (!email || !password) throw new AppError('Missing required fields', 400)
+export const loginService = async (
+  dto: LoginDto,
+  meta?: { ipAddress?: string; userAgent?: string },
+): Promise<{ user: { id: string; email: string } } & TokenPair> => {
+  const user = await findUserByEmail(dto.email)
 
-//   const normalizedEmail = email.trim().toLowerCase()
-//   if (!normalizedEmail) throw new AppError('Missing required fields', 400)
+  const passwordHash = user?.password_hash ?? DUMMY_BCRYPT_HASH
+  const isValid = await bcrypt.compare(dto.password, passwordHash)
 
-//   const row = await findUserByEmail(normalizedEmail)
+  if (!user || !isValid) throw new AppError('Invalid email or password', 401)
+  if (!user.is_active) throw new AppError('Account disabled', 403)
+  // if (!user.email_verified) throw new AppError('Email not verified', 403)
 
-//   const passwordHash: string = row?.password_hash ?? DUMMY_BCRYPT_HASH
-//   const isValid = await bcrypt.compare(password, passwordHash)
+  const tokens = await generateTokenPair(user.id, meta)
 
-//   if (!row || !isValid) throw new AppError('Invalid email or password', 401)
-//   if (!row.is_active) throw new AppError('Account disabled', 403)
-//   if (!row.email_verified) throw new AppError('Email not verified', 403)
-
-//   return { id: row.id, email: row.email }
-// }
+  return { user: { id: user.id, email: user.email }, ...tokens }
+}

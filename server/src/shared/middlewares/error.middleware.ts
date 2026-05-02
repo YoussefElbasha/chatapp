@@ -8,7 +8,7 @@ export const errorHandler = (err: unknown, _req: Request, res: Response, _next: 
     return res.status(err.statusCode).json({ message: err.message })
   }
 
-  res.status(500).json({
+  return res.status(500).json({
     message: 'Internal server error',
   })
 }
