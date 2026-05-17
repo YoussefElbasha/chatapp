@@ -1,4 +1,14 @@
-import rateLimit from 'express-rate-limit'
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
+import type { Request } from 'express'
+
+const emailKeyGenerator = (req: Request, _res: unknown): string => {
+  const raw = (req.body as { email?: unknown })?.email
+  if (typeof raw === 'string') {
+    const normalized = raw.trim().toLowerCase()
+    if (normalized) return `email:${normalized}`
+  }
+  return `ip:${ipKeyGenerator(req.ip ?? '')}`
+}
 
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -14,4 +24,22 @@ export const refreshLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { message: 'Too many requests, please try again later' },
+})
+
+export const loginEmailLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: emailKeyGenerator,
+  message: { message: 'Too many login attempts for this account, please try again later' },
+})
+
+export const registerEmailLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 3,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: emailKeyGenerator,
+  message: { message: 'Too many signup attempts for this email, please try again later' },
 })

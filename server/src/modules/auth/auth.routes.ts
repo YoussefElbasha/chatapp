@@ -1,6 +1,11 @@
 import { Router } from 'express'
 import { authHandler as authMiddleware } from './../../shared/middlewares/auth.middleware'
-import { authLimiter, refreshLimiter } from 'shared/middlewares/rate-limit.middleware'
+import {
+  authLimiter,
+  loginEmailLimiter,
+  refreshLimiter,
+  registerEmailLimiter,
+} from 'shared/middlewares/rate-limit.middleware'
 
 import {
   getMeController,
@@ -13,8 +18,8 @@ import {
 
 const router = Router()
 
-router.post('/register', authLimiter, registerController)
-router.post('/login', authLimiter, loginController)
+router.post('/register', authLimiter, registerEmailLimiter, registerController)
+router.post('/login', authLimiter, loginEmailLimiter, loginController)
 router.post('/logout', logoutController)
 router.post('/logout-all', authMiddleware, logoutAllController)
 router.post('/refresh', refreshLimiter, refreshTokenController)
