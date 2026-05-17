@@ -5,7 +5,6 @@ export const mapUserDbToUser = (row: UserDb): User => ({
   email: row.email,
   username: row.username,
   discriminator: row.discriminator,
-  passwordHash: row.password_hash,
   displayName: row.display_name,
   avatarUrl: row.avatar_url,
   bio: row.bio,

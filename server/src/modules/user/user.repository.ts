@@ -7,7 +7,6 @@ const USER_COLUMNS = `
   email,
   username,
   discriminator,
-  password_hash,
   display_name,
   avatar_url,
   bio,
@@ -79,7 +78,10 @@ export const createUser = async (dto: CreateUserDto): Promise<CreatedUser> => {
 
     return rows[0]
   } catch (err: any) {
-    if (err.code === '23505') throw new Error('DISCRIMINATION TAKEN')
+      if (err.code === '23505') {
+        if (err.constraint === 'users_username_discriminator_key') throw new Error('DISCRIMINATOR_TAKEN')
+        if (err.constraint === 'users_email_key') throw new Error('EMAIL_TAKEN')
+      }    
     throw err
   }
 }

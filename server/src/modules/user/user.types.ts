@@ -3,7 +3,6 @@ export interface User {
   email: string
   username: string
   discriminator: string
-  passwordHash: string
   displayName: string
   avatarUrl: string | null
   bio: string | null
@@ -21,7 +20,6 @@ export interface UserDb {
   email: string
   username: string
   discriminator: string
-  password_hash: string
   display_name: string
   avatar_url: string | null
   bio: string | null

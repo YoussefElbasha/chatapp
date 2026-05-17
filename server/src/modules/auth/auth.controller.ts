@@ -25,7 +25,7 @@ export const registerController = async (req: Request, res: Response, next: Next
 
     return res.status(201).json({ message: 'Account created successfully', user, accessToken })
   } catch (err) {
-    next(err)
+    return next(err)
   }
 }
 
@@ -48,7 +48,7 @@ export const loginController = async (req: Request, res: Response, next: NextFun
 
     return res.status(200).json({ message: 'Login successful', user, accessToken })
   } catch (err) {
-    next(err)
+    return next(err)
   }
 }
 
@@ -64,7 +64,7 @@ export const logoutController = async (req: Request, res: Response, next: NextFu
 
     return res.status(200).json({ message: 'Logged out successfully' })
   } catch (err) {
-    next(err)
+    return next(err)
   }
 }
 
@@ -78,17 +78,19 @@ export const logoutAllController = async (req: Request, res: Response, next: Nex
 
     return res.status(200).json({ message: 'Logged out from all devices successfully' })
   } catch (err) {
-    next(err)
+    return next(err)
   }
 }
 
 export const getMeController = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (!req.userId) return res.status(401).json({ message: 'Unauthorized' })
+
     const user = await getUserByIdService(req.userId)
 
     return res.status(200).json({ message: 'User retrieved successfully', user })
   } catch (err) {
-    next(err)
+    return next(err)
   }
 }
 
@@ -109,6 +111,6 @@ export const refreshTokenController = async (req: Request, res: Response, next: 
 
     return res.status(200).json({ accessToken })
   } catch (err) {
-    next(err)
+    return next(err)
   }
 }

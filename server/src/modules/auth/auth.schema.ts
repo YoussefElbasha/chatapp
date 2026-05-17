@@ -1,7 +1,12 @@
 import { z } from 'zod'
 
+const emailField = z
+  .email('Invalid email format')
+  .trim()
+  .toLowerCase()
+
 export const registerSchema = z.object({
-  email: z.email('Invalid email format'),
+  email: emailField,
 
   username: z
     .string({ error: 'Username is required' })
@@ -13,7 +18,7 @@ export const registerSchema = z.object({
   password: z
     .string({ error: 'Password is required' })
     .min(8, 'Password must be at least 8 characters')
-    .max(72, 'Password must be at most 72 characters') // bcrypt hard limit
+    .refine((p) => Buffer.byteLength(p, 'utf8') <= 72, 'Password must be at most 72 bytes')
     .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
     .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
     .regex(/[0-9]/, 'Password must contain at least one number')
@@ -28,7 +33,7 @@ export const registerSchema = z.object({
 })
 
 export const loginSchema = z.object({
-  email: z.email('Invalid email format'),
+  email: emailField,
   password: z.string().min(1, 'Password is required'),
 })
 

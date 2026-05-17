@@ -13,17 +13,19 @@ export const authHandler = (req: Request, res: Response, next: NextFunction) => 
 
   if (!token) throw new AppError('Unauthorized', 401)
 
+  const secret = process.env.JWT_ACCESS_SECRET
+
+  if (!secret) throw new AppError('Internal Server Error', 500)
+
   try {
-    const secret = process.env.JWT_ACCESS_SECRET
-
-    if (!secret) throw new Error('JWT_ACCESS_SECRET is not defined')
-
     const payload = jwt.verify(token, secret) as { userId: string }
 
     req.userId = payload.userId
 
-    next()
+    return next()
   } catch (err) {
-    if (err instanceof jwt.TokenExpiredError) throw new AppError('Token expired', 401)
+    if (err instanceof jwt.TokenExpiredError) return next(new AppError('Token expired', 401))
+    if (err instanceof jwt.JsonWebTokenError) return next(new AppError('Unauthorized', 401))
+    return next(err)
   }
 }
