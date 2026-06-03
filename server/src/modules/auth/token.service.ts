@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import { insertRefreshToken } from './token.repository'
 import type { TokenPair, InsertRefreshTokenDto } from './token.types'
+import { hashToken } from 'shared/utils/tokens'
 
 const ACCESS_TOKEN_EXPIRY = '15m'
 const REFRESH_TOKEN_EXPIRY = '30d'
@@ -30,7 +31,7 @@ export const generateTokenPair = async (
     jwtid: crypto.randomUUID(),
   })
 
-  const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex')
+  const tokenHash = hashToken(refreshToken)
 
   const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_MS)
 

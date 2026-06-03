@@ -1,93 +1,128 @@
-import { getPool } from 'db/pool'
+import { eq, inArray, sql } from 'drizzle-orm'
+import { getDb } from 'db/client'
+import { serverMembers, users } from 'db/schema'
 
 import type { CreatedUser, CreateUserDto, LoginRow, UserDb } from './user.types'
 
-const USER_COLUMNS = `
-  id,
-  email,
-  username,
-  discriminator,
-  display_name,
-  avatar_url,
-  bio,
-  status,
-  email_verified,
-  is_active,
-  last_login_at,
-  last_logout_at,
-  created_at,
-  updated_at
-`
+const userColumns = {
+  id: users.id,
+  email: users.email,
+  username: users.username,
+  discriminator: users.discriminator,
+  display_name: users.displayName,
+  avatar_url: users.avatarUrl,
+  bio: users.bio,
+  status: users.status,
+  email_verified: users.emailVerified,
+  is_active: users.isActive,
+  last_login_at: users.lastLoginAt,
+  last_logout_at: users.lastLogoutAt,
+  created_at: users.createdAt,
+  updated_at: users.updatedAt,
+}
 
 export const findUserById = async (id: string): Promise<UserDb | null> => {
-  const pool = getPool()
-
-  const { rows } = await pool.query<UserDb>(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1`, [id])
-
-  return rows[0] ?? null
+  const rows = await getDb().select(userColumns).from(users).where(eq(users.id, id)).limit(1)
+  return (rows[0] as UserDb | undefined) ?? null
 }
 
 export const findUserByEmail = async (email: string): Promise<LoginRow | null> => {
-  const pool = getPool()
+  const rows = await getDb()
+    .select({
+      id: users.id,
+      email: users.email,
+      password_hash: users.passwordHash,
+      email_verified: users.emailVerified,
+      is_active: users.isActive,
+    })
+    .from(users)
+    .where(sql`lower(${users.email}) = lower(${email})`)
+    .limit(1)
 
-  const { rows } = await pool.query<LoginRow>(
-    `SELECT id, email, password_hash, email_verified, is_active FROM users WHERE email = $1 LIMIT 1`,
-    [email],
-  )
-
-  return rows[0] ?? null
+  return (rows[0] as LoginRow | undefined) ?? null
 }
 
 export const findAllUsers = async (): Promise<UserDb[]> => {
-  const pool = getPool()
-
-  const { rows } = await pool.query<UserDb>(`SELECT ${USER_COLUMNS} FROM users`)
-
-  return rows
+  const rows = await getDb().select(userColumns).from(users)
+  return rows as UserDb[]
 }
 
 export const findUsersByServerId = async (serverId: string): Promise<UserDb[]> => {
-  const pool = getPool()
-
-  const { rows } = await pool.query<UserDb>(
-    `SELECT ${USER_COLUMNS}
-     FROM users
-     WHERE users.id IN (
-       SELECT user_id
-       FROM server_members
-       WHERE server_id = $1
-     )`,
-    [serverId],
-  )
-
-  return rows
+  const rows = await getDb()
+    .select(userColumns)
+    .from(users)
+    .where(
+      inArray(
+        users.id,
+        getDb()
+          .select({ userId: serverMembers.userId })
+          .from(serverMembers)
+          .where(eq(serverMembers.serverId, serverId)),
+      ),
+    )
+  return rows as UserDb[]
 }
 
 export const createUser = async (dto: CreateUserDto): Promise<CreatedUser> => {
-  const pool = getPool()
-
   try {
-    const { rows } = await pool.query<CreatedUser>(
-      `
-      INSERT INTO users (email, username, discriminator, password_hash, display_name)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, email, username, discriminator, display_name AS "displayName"
-      `,
-      [dto.email, dto.username, dto.discriminator, dto.passwordHash, dto.displayName],
-    )
+    const rows = await getDb()
+      .insert(users)
+      .values({
+        email: dto.email,
+        username: dto.username,
+        discriminator: dto.discriminator,
+        passwordHash: dto.passwordHash,
+        displayName: dto.displayName ?? null,
+      })
+      .returning({
+        id: users.id,
+        email: users.email,
+        username: users.username,
+        discriminator: users.discriminator,
+        displayName: users.displayName,
+      })
 
-    return rows[0]
+    return rows[0] as CreatedUser
   } catch (err: any) {
-      if (err.code === '23505') {
-        if (err.constraint === 'users_username_discriminator_key') throw new Error('DISCRIMINATOR_TAKEN')
-        if (err.constraint === 'users_email_key') throw new Error('EMAIL_TAKEN')
-      }    
+    if (err?.code === '23505') {
+      if (err.constraint === 'users_username_discriminator_key') throw new Error('DISCRIMINATOR_TAKEN')
+      if (err.constraint === 'users_email_key' || err.constraint === 'users_email_lower_idx') {
+        throw new Error('EMAIL_TAKEN')
+      }
+    }
     throw err
   }
 }
 
 export const deleteUserById = async (id: string): Promise<void> => {
-  const pool = getPool()
+  await getDb().delete(users).where(eq(users.id, id))
+}
 
-  await pool.query(`DELETE FROM users WHERE id = $1`, [id])
+export const updateLastLoginAt = async (id: string): Promise<void> => {
+  await getDb().update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, id))
+}
+
+export const updatePasswordHash = async (id: string, passwordHash: string): Promise<void> => {
+  await getDb()
+    .update(users)
+    .set({ passwordHash, updatedAt: new Date() })
+    .where(eq(users.id, id))
+}
+
+export const findUserCredentialsById = async (
+  id: string,
+): Promise<{ id: string; password_hash: string } | null> => {
+  const rows = await getDb()
+    .select({ id: users.id, password_hash: users.passwordHash })
+    .from(users)
+    .where(eq(users.id, id))
+    .limit(1)
+  return rows[0] ?? null
+}
+
+export const markEmailVerified = async (id: string): Promise<void> => {
+  await getDb()
+    .update(users)
+    .set({ emailVerified: true, updatedAt: new Date() })
+    .where(eq(users.id, id))
 }

@@ -1,9 +1,9 @@
 import { Router } from 'express'
-import { getUserByIdController, getUsersController } from 'modules/user/user.controller'
+import { getUserByIdController } from 'modules/user/user.controller'
+import { authHandler as authMiddleware } from 'shared/middlewares/auth.middleware'
 
 const router = Router()
 
-router.get('/', getUsersController)
-router.get('/:id', getUserByIdController)
+router.get('/:id', authMiddleware, getUserByIdController)
 
 export default router

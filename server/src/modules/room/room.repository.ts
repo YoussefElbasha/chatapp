@@ -1,39 +1,44 @@
-import type { PoolClient } from 'pg'
+import { and, eq } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
+import type * as schema from 'db/schema'
+import { roomMembers, rooms } from 'db/schema'
+
+type Tx = NodePgDatabase<typeof schema>
 
 export const findDMRoom = async (
-  client: PoolClient,
+  tx: Tx,
   senderId: string,
-  receiverId: string
+  receiverId: string,
 ): Promise<string | null> => {
-  const { rows } = await client.query<{ room_id: string }>(
-    `SELECT r.id AS room_id
-     FROM rooms r
-     JOIN room_members rm1 ON rm1.room_id = r.id
-     JOIN room_members rm2 ON r.id = rm2.room_id
-     WHERE r.type = 'DM'
-     AND rm1.user_id = $1
-     AND rm2.user_id = $2`,
-    [senderId, receiverId]
-  )
+  const rm1 = alias(roomMembers, 'rm1')
+  const rm2 = alias(roomMembers, 'rm2')
 
-  return rows.length > 0 ? rows[0].room_id : null
+  const rows = await tx
+    .select({ id: rooms.id })
+    .from(rooms)
+    .innerJoin(rm1, eq(rm1.roomId, rooms.id))
+    .innerJoin(rm2, eq(rm2.roomId, rooms.id))
+    .where(and(eq(rooms.type, 'DM'), eq(rm1.userId, senderId), eq(rm2.userId, receiverId)))
+    .limit(1)
+
+  return rows[0]?.id ?? null
 }
 
 export const createDMRoom = async (
-  client: PoolClient,
+  tx: Tx,
   senderId: string,
-  receiverId: string
+  receiverId: string,
 ): Promise<string> => {
-  const { rows } = await client.query<{ id: string }>(
-    `INSERT INTO rooms (type, total_members) VALUES ('DM', 2) RETURNING id`
-  )
+  const [room] = await tx
+    .insert(rooms)
+    .values({ type: 'DM', totalMembers: 2 })
+    .returning({ id: rooms.id })
 
-  const roomId = rows[0].id
+  await tx.insert(roomMembers).values([
+    { roomId: room.id, userId: senderId },
+    { roomId: room.id, userId: receiverId },
+  ])
 
-  await client.query(
-    `INSERT INTO room_members (room_id, user_id) VALUES ($1, $2), ($1, $3)`,
-    [roomId, senderId, receiverId]
-  )
-
-  return roomId
+  return room.id
 }

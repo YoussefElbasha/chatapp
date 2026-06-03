@@ -1,6 +1,5 @@
 import bcrypt from 'bcrypt'
-import crypto from 'crypto'
-import { createUser, findUserByEmail } from 'modules/user/user.repository'
+import { createUser, findUserByEmail, updateLastLoginAt } from 'modules/user/user.repository'
 import { AppError } from 'shared/utils/errors/app-error'
 
 import type { LoginDto, RegisterDto } from './auth.schema'
@@ -8,6 +7,7 @@ import { CreatedUser } from 'modules/user/user.types'
 import { generateTokenPair, getRefreshSecret } from './token.service'
 import { TokenPair } from './token.types'
 import { deleteAllRefreshTokensByUserId, deleteRefreshTokenByHash, findRefreshTokenByHash } from './token.repository'
+import { hashToken } from 'shared/utils/tokens'
 import jwt from 'jsonwebtoken'
 
 const DUMMY_BCRYPT_HASH = '$2b$12$fE35fVzqo6vVxL0FpaB7GO8dlVZWpALxLJHUTJJPIFmU0Hjfg89nW'
@@ -59,6 +59,8 @@ export const loginService = async (
   if (!user.is_active) throw new AppError('Invalid email or username or password', 401)
   // if (!user.email_verified) throw new AppError('Email not verified', 403)
 
+  void updateLastLoginAt(user.id).catch((e) => console.error('updateLastLoginAt failed:', e))
+
   const tokens = await generateTokenPair(user.id, meta)
 
   return { user: { id: user.id, email: user.email }, ...tokens }
@@ -67,7 +69,7 @@ export const loginService = async (
 export const logoutService = async (refreshToken: string) => {
   if (!refreshToken) return
 
-  const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex')
+  const tokenHash = hashToken(refreshToken)
 
   await deleteRefreshTokenByHash(tokenHash)
 }
@@ -93,7 +95,7 @@ export const refreshTokenService = async (
 
   if (!verified?.userId) throw new AppError('Unauthorized', 401)
 
-  const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex')
+  const tokenHash = hashToken(refreshToken)
 
   const existingToken = await findRefreshTokenByHash(tokenHash)
 

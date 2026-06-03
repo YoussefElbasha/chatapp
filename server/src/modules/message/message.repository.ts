@@ -1,22 +1,34 @@
-// modules/message/message.repository.ts
-import { getPool } from 'db/pool'
+import { getDb } from 'db/client'
+import { messages } from 'db/schema'
 
-import type { MessageDb } from './message.db'
+import type { Embed, MessageDb } from './message.db'
 
 export const insertMessage = async (
   roomId: string,
   userId: string,
   content: string,
-  embedsJson: string | null
+  embedsJson: string | null,
 ): Promise<MessageDb> => {
-  const pool = getPool()
+  const embeds = embedsJson ? (JSON.parse(embedsJson) as Embed[]) : null
 
-  const { rows } = await pool.query<MessageDb>(
-    `INSERT INTO messages (room_id, user_id, content, embeds)
-     VALUES ($1, $2, $3, $4)
-     RETURNING *`,
-    [roomId, userId, content, embedsJson]
-  )
+  const rows = await getDb()
+    .insert(messages)
+    .values({ roomId, userId, content, embeds })
+    .returning({
+      id: messages.id,
+      room_id: messages.roomId,
+      user_id: messages.userId,
+      content: messages.content,
+      embeds: messages.embeds,
+      is_edited: messages.isEdited,
+      is_deleted: messages.isDeleted,
+      created_at: messages.createdAt,
+    })
 
-  return rows[0]
+  const row = rows[0]
+  return {
+    ...row,
+    id: String(row.id),
+    embeds: row.embeds as Embed[] | null,
+  }
 }
