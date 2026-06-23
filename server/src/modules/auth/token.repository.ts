@@ -28,8 +28,11 @@ export const deleteRefreshTokenByHash = async (tokenHash: string): Promise<void>
   await getDb().delete(refreshTokens).where(eq(refreshTokens.tokenHash, tokenHash))
 }
 
-export const deleteAllRefreshTokensByUserId = async (userId: string): Promise<void> => {
-  await getDb().delete(refreshTokens).where(eq(refreshTokens.userId, userId))
+export const deleteAllRefreshTokensByUserId = async (
+  userId: string,
+  db: ReturnType<typeof getDb> = getDb(),
+): Promise<void> => {
+  await db.delete(refreshTokens).where(eq(refreshTokens.userId, userId))
 }
 
 export const deleteRefreshTokensExceptHash = async (

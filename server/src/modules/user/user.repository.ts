@@ -15,10 +15,7 @@ const userColumns = {
   status: users.status,
   email_verified: users.emailVerified,
   is_active: users.isActive,
-  last_login_at: users.lastLoginAt,
   last_logout_at: users.lastLogoutAt,
-  created_at: users.createdAt,
-  updated_at: users.updatedAt,
 }
 
 export const findUserById = async (id: string): Promise<UserDb | null> => {
@@ -63,9 +60,12 @@ export const findUsersByServerId = async (serverId: string): Promise<UserDb[]> =
   return rows as UserDb[]
 }
 
-export const createUser = async (dto: CreateUserDto): Promise<CreatedUser> => {
+export const createUser = async (
+  dto: CreateUserDto,
+  db: ReturnType<typeof getDb> = getDb(),
+): Promise<CreatedUser> => {
   try {
-    const rows = await getDb()
+    const rows = await db
       .insert(users)
       .values({
         email: dto.email,
@@ -102,18 +102,19 @@ export const updateLastLoginAt = async (id: string): Promise<void> => {
   await getDb().update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, id))
 }
 
-export const updatePasswordHash = async (id: string, passwordHash: string): Promise<void> => {
-  await getDb()
-    .update(users)
-    .set({ passwordHash, updatedAt: new Date() })
-    .where(eq(users.id, id))
+export const updatePasswordHash = async (
+  id: string,
+  passwordHash: string,
+  db: ReturnType<typeof getDb> = getDb(),
+): Promise<void> => {
+  await db.update(users).set({ passwordHash, updatedAt: new Date() }).where(eq(users.id, id))
 }
 
 export const findUserCredentialsById = async (
   id: string,
-): Promise<{ id: string; password_hash: string } | null> => {
+): Promise<{ id: string; email: string; password_hash: string } | null> => {
   const rows = await getDb()
-    .select({ id: users.id, password_hash: users.passwordHash })
+    .select({ id: users.id, email: users.email, password_hash: users.passwordHash })
     .from(users)
     .where(eq(users.id, id))
     .limit(1)
@@ -121,8 +122,5 @@ export const findUserCredentialsById = async (
 }
 
 export const markEmailVerified = async (id: string): Promise<void> => {
-  await getDb()
-    .update(users)
-    .set({ emailVerified: true, updatedAt: new Date() })
-    .where(eq(users.id, id))
+  await getDb().update(users).set({ emailVerified: true, updatedAt: new Date() }).where(eq(users.id, id))
 }

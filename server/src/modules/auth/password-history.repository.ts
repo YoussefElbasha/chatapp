@@ -10,14 +10,11 @@ export type PasswordHistoryRow = {
 export const insertPasswordHistory = async (
   userId: string,
   passwordHash: string,
+  db: ReturnType<typeof getDb> = getDb(),
 ): Promise<void> => {
-  try {
-    await getDb().insert(passwordHistory).values({ userId, passwordHash })
-  } catch (err: any) {
-    // Same (user_id, password_hash) already recorded — ignore.
-    if (err?.code === '23505') return
-    throw err
-  }
+  // Same (user_id, password_hash) already recorded — ignore. Uses ON CONFLICT
+  // (not try/catch) so a duplicate never aborts an enclosing transaction.
+  await db.insert(passwordHistory).values({ userId, passwordHash }).onConflictDoNothing()
 }
 
 export const findRecentPasswordHistory = async (

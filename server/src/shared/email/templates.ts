@@ -2,11 +2,15 @@ const baseStyle = `font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", R
 
 const buttonStyle = `display: inline-block; padding: 12px 24px; background: #5865f2; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600;`
 
-const wrap = (title: string, body: string): string => `
+const wrap = (
+  title: string,
+  body: string,
+  footer = "If you didn't request this, you can safely ignore this email.",
+): string => `
   <div style="${baseStyle} max-width: 560px; margin: 0 auto; padding: 32px 24px;">
     <h1 style="font-size: 20px; margin: 0 0 16px;">${title}</h1>
     ${body}
-    <p style="font-size: 12px; color: #6b7280; margin-top: 32px;">If you didn't request this, you can safely ignore this email.</p>
+    <p style="font-size: 12px; color: #6b7280; margin-top: 32px;">${footer}</p>
   </div>
 `
 
@@ -31,5 +35,16 @@ export const passwordResetEmailTemplate = (link: string): { subject: string; htm
     <p style="margin: 24px 0;"><a href="${link}" style="${buttonStyle}">Reset password</a></p>
     <p style="font-size: 12px; color: #6b7280;">Or paste this URL into your browser:<br/><span style="word-break: break-all;">${link}</span></p>
     `,
+  ),
+})
+
+export const passwordChangedEmailTemplate = (): { subject: string; html: string } => ({
+  subject: 'Your password was changed',
+  html: wrap(
+    'Your password was changed',
+    `
+    <p>The password for your account was just changed. For your security, you've been signed out of all devices.</p>
+    `,
+    "If you didn't make this change, your account may be compromised — reset your password immediately and contact support.",
   ),
 })

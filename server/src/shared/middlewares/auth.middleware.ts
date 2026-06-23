@@ -5,7 +5,7 @@ import { AppError } from 'shared/utils/errors/app-error'
 export const authHandler = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!authHeader || (!authHeader.startsWith('Bearer ') && !authHeader.startsWith('bearer '))) {
     throw new AppError('Unauthorized', 401)
   }
 

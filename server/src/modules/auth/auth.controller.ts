@@ -1,8 +1,15 @@
 import { z } from 'zod'
 
 import type { NextFunction, Request, Response } from 'express'
-import { loginService, logoutAllService, logoutService, refreshTokenService, registerService } from './auth.service'
-import { loginSchema, registerSchema } from './auth.schema'
+import {
+  changePasswordService,
+  loginService,
+  logoutAllService,
+  logoutService,
+  refreshTokenService,
+  registerService,
+} from './auth.service'
+import { changePasswordSchema, loginSchema, registerSchema } from './auth.schema'
 import { REFRESH_TOKEN_COOKIE_OPTIONS } from 'shared/utils/cookie-options'
 import { getUserByIdService } from 'modules/user/user.service'
 
@@ -110,6 +117,25 @@ export const refreshTokenController = async (req: Request, res: Response, next: 
     res.cookie('refreshToken', newRefreshToken, REFRESH_TOKEN_COOKIE_OPTIONS)
 
     return res.status(200).json({ accessToken })
+  } catch (err) {
+    return next(err)
+  }
+}
+
+export const changePasswordController = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.userId) return res.status(401).json({ message: 'Unauthorized' })
+
+    const parsed = changePasswordSchema.safeParse(req.body)
+
+    if (!parsed.success) {
+      return res.status(400).json({ message: 'Validation failed', errors: z.treeifyError(parsed.error) })
+    }
+
+    await changePasswordService(req.userId, parsed.data.oldPassword, parsed.data.newPassword)
+
+    res.clearCookie('refreshToken', REFRESH_TOKEN_COOKIE_OPTIONS)
+    return res.status(200).json({ message: 'Password changed successfully' })
   } catch (err) {
     return next(err)
   }
