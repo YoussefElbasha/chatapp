@@ -46,6 +46,14 @@ export const changePasswordSchema = z
     path: ['newPassword'],
   })
 
+export const forgotPasswordSchema = z.object({ email: emailField })
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, 'Token is required'),
+  newPassword: passwordField,
+})
+
+export type ForgotPasswordDto = z.infer<typeof forgotPasswordSchema>
+export type ResetPasswordDto = z.infer<typeof resetPasswordSchema>
 export type LoginDto = z.infer<typeof loginSchema>
 export type RegisterDto = z.infer<typeof registerSchema>
 export type ChangePasswordDto = z.infer<typeof changePasswordSchema>

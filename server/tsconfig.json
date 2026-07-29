@@ -1,16 +1,23 @@
+// The editor, `pnpm typecheck` and type-aware linting all need to see more than
+// the build does: tests and config files are real TypeScript we want checked,
+// but they must not end up in dist/. So this config checks everything and emits
+// nothing, and tsconfig.build.json narrows it back down to src/ for the build.
+//
+// Keeping the wide config as the default matters for editors: they pick up
+// tsconfig.json automatically, and a file that belongs to no project falls back
+// to an inferred one with no `paths`, which makes every bare import look broken.
 {
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESnext",
     "moduleResolution": "bundler",
     "paths": { "*": ["./src/*"] },
-    "outDir": "./dist",
-    "rootDir": "./src",
+    "noEmit": true,
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "tests/**/*", "vitest.config.ts", "drizzle.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

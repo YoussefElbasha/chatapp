@@ -1,9 +1,15 @@
 import type { NextFunction, Request, Response } from 'express'
 import { createMessageService } from 'modules/message/message.service'
+import type { Embed } from 'modules/message/message.types'
 
 export const createMessageController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { roomId, userId, content, embeds } = req.body
+    const { roomId, userId, content, embeds } = req.body as {
+      roomId: string
+      userId: string
+      content: string
+      embeds?: Embed[] | null
+    }
 
     const message = await createMessageService({ roomId, userId, content, embeds })
 

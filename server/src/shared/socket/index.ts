@@ -1,34 +1,34 @@
 import type { Server as HttpServer } from 'http'
+import { verifyAccessToken } from 'modules/auth/token.service'
+import type { ClientToServerEvents, ServerToClientEvents, SocketData } from 'shared/types/socket'
+import { socketCorsOptions } from 'shared/utils/cors-options'
 import { Server } from 'socket.io'
 
-import type { ClientToServerEvents, ServerToClientEvents, SocketData } from 'shared/types/socket'
 import { registerSocketEvents } from './events'
 
-export const initSocket = (
-  httpServer: HttpServer,
-): Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData> => {
-  const io = new Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>(httpServer, {
-    cors: {
-      origin: '*',
-    },
-  })
+type ChatServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>
+
+export const initSocket = (httpServer: HttpServer): ChatServer => {
+  const io: ChatServer = new Server(httpServer, { cors: socketCorsOptions })
 
   io.use((socket, next) => {
-    const { userId } = socket.handshake.auth
+    const { token } = socket.handshake.auth as { token?: unknown }
 
-    if (typeof userId !== 'string') {
+    if (typeof token !== 'string' || !token) {
       next(new Error('Unauthorized'))
       return
     }
 
-    socket.data.userId = userId
-    next()
+    try {
+      socket.data.userId = verifyAccessToken(token).userId
+      next()
+    } catch {
+      next(new Error('Unauthorized'))
+    }
   })
 
   io.on('connection', (socket) => {
-    const userId = socket.handshake.auth.userId as string
-
-    void socket.join(`user:${userId}`)
+    void socket.join(`user:${socket.data.userId}`)
 
     registerSocketEvents(io, socket)
   })

@@ -6,6 +6,8 @@ export interface ServerToClientEvents {
     content: string
     createdAt: string
   }) => void
+
+  'socket:error': (payload: { event: string; message: string }) => void
 }
 
 export interface ClientToServerEvents {

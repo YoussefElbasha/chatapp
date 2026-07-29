@@ -1,16 +1,23 @@
-import { and, eq } from 'drizzle-orm'
-import { alias } from 'drizzle-orm/pg-core'
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
+import { getDb } from 'db/client'
 import type * as schema from 'db/schema'
 import { roomMembers, rooms } from 'db/schema'
+import { and, eq } from 'drizzle-orm'
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
+import { alias } from 'drizzle-orm/pg-core'
 
 type Tx = NodePgDatabase<typeof schema>
 
-export const findDMRoom = async (
-  tx: Tx,
-  senderId: string,
-  receiverId: string,
-): Promise<string | null> => {
+export const isRoomMember = async (userId: string, roomId: string, db: Tx = getDb()): Promise<boolean> => {
+  const rows = await db
+    .select({ userId: roomMembers.userId })
+    .from(roomMembers)
+    .where(and(eq(roomMembers.userId, userId), eq(roomMembers.roomId, roomId)))
+    .limit(1)
+
+  return rows.length > 0
+}
+
+export const findDMRoom = async (tx: Tx, senderId: string, receiverId: string): Promise<string | null> => {
   const rm1 = alias(roomMembers, 'rm1')
   const rm2 = alias(roomMembers, 'rm2')
 
@@ -25,15 +32,8 @@ export const findDMRoom = async (
   return rows[0]?.id ?? null
 }
 
-export const createDMRoom = async (
-  tx: Tx,
-  senderId: string,
-  receiverId: string,
-): Promise<string> => {
-  const [room] = await tx
-    .insert(rooms)
-    .values({ type: 'DM', totalMembers: 2 })
-    .returning({ id: rooms.id })
+export const createDMRoom = async (tx: Tx, senderId: string, receiverId: string): Promise<string> => {
+  const [room] = await tx.insert(rooms).values({ type: 'DM', totalMembers: 2 }).returning({ id: rooms.id })
 
   await tx.insert(roomMembers).values([
     { roomId: room.id, userId: senderId },

@@ -1,7 +1,9 @@
-import { eq, inArray, sql } from 'drizzle-orm'
 import { getDb } from 'db/client'
 import { serverMembers, users } from 'db/schema'
+import { eq, inArray, sql } from 'drizzle-orm'
+import { uniqueViolationOf } from 'shared/utils/errors/pg-error'
 
+import { UserConflictError } from './user.errors'
 import type { CreatedUser, CreateUserDto, LoginRow, UserDb } from './user.types'
 
 const userColumns = {
@@ -60,10 +62,7 @@ export const findUsersByServerId = async (serverId: string): Promise<UserDb[]> =
   return rows as UserDb[]
 }
 
-export const createUser = async (
-  dto: CreateUserDto,
-  db: ReturnType<typeof getDb> = getDb(),
-): Promise<CreatedUser> => {
+export const createUser = async (dto: CreateUserDto, db: ReturnType<typeof getDb> = getDb()): Promise<CreatedUser> => {
   try {
     const rows = await db
       .insert(users)
@@ -83,13 +82,15 @@ export const createUser = async (
       })
 
     return rows[0] as CreatedUser
-  } catch (err: any) {
-    if (err?.code === '23505') {
-      if (err.constraint === 'users_username_discriminator_key') throw new Error('DISCRIMINATOR_TAKEN')
-      if (err.constraint === 'users_email_key' || err.constraint === 'users_email_lower_idx') {
-        throw new Error('EMAIL_TAKEN')
-      }
+  } catch (err: unknown) {
+    const constraint = uniqueViolationOf(err)
+
+    if (constraint === 'users_username_discriminator_key') throw new UserConflictError('discriminator_taken')
+
+    if (constraint === 'users_email_key' || constraint === 'users_email_lower_idx') {
+      throw new UserConflictError('email_taken')
     }
+
     throw err
   }
 }
@@ -112,9 +113,14 @@ export const updatePasswordHash = async (
 
 export const findUserCredentialsById = async (
   id: string,
-): Promise<{ id: string; email: string; password_hash: string } | null> => {
+): Promise<{ id: string; email: string; password_hash: string; is_active: boolean } | null> => {
   const rows = await getDb()
-    .select({ id: users.id, email: users.email, password_hash: users.passwordHash })
+    .select({
+      id: users.id,
+      email: users.email,
+      password_hash: users.passwordHash,
+      is_active: users.isActive,
+    })
     .from(users)
     .where(eq(users.id, id))
     .limit(1)

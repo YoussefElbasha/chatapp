@@ -1,27 +1,47 @@
-import dotenv from 'dotenv'
-dotenv.config()
+// Loads and validates .env before anything else reads it. Keep this import first.
+import { env } from 'config/env'
 import cookieParser from 'cookie-parser'
 import cors from 'cors'
 import express, { type Request, type Response } from 'express'
 import helmet from 'helmet'
 import { createServer } from 'http'
-import cron from 'node-cron'
-import { errorHandler } from 'shared/middlewares/error.middleware.js'
-
+import authRoutes from 'modules/auth/auth.routes'
+import { cleanupExpiredTokens } from 'modules/auth/cleanup'
 import messageRoutes from 'modules/message/message.routes'
 import roomRoutes from 'modules/room/room.routes'
 import userRoutes from 'modules/user/user.routes'
-import authRoutes from 'modules/auth/auth.routes'
-import { cleanupExpiredTokens } from 'modules/auth/cleanup'
+import cron from 'node-cron'
+import { pinoHttp } from 'pino-http'
+import { logger } from 'shared/logger/logger'
+import { errorHandler } from 'shared/middlewares/error.middleware.js'
 import { initSocket } from 'shared/socket/index.js'
+import { corsOptions } from 'shared/utils/cors-options'
 
 const app = express()
-const PORT = Number(process.env.PORT) || 5000
+
+// When we sit behind a proxy (nginx, Render, Fly, Cloudflare...), the caller's
+// real address arrives in the X-Forwarded-For header instead of the socket.
+// TRUST_PROXY = how many proxies are in front of us. 0 means none.
+//
+// Get this wrong and every rate limiter breaks: too low and everyone shares the
+// proxy's address (one budget for the whole world), too high and a caller can
+// fake the header to get a fresh budget whenever they like.
+app.set('trust proxy', env.TRUST_PROXY)
 
 app.use(helmet())
-app.use(cors())
+app.use(cors(corsOptions))
 app.use(cookieParser())
 app.use(express.json())
+
+app.use(pinoHttp({ logger }))
+
+app.get('/', (_req: Request, res: Response): void => {
+  res.json({ message: 'Welcome to the Express + TypeScript Backend!' })
+})
+
+app.get('/health', (_req: Request, res: Response): void => {
+  res.status(200).send('OK')
+})
 
 app.use('/api/v1/users', userRoutes)
 app.use('/api/v1/rooms', roomRoutes)
@@ -30,26 +50,16 @@ app.use('/api/v1/auth', authRoutes)
 
 app.use(errorHandler)
 
-app.get('/', (req: Request, res: Response): void => {
-  res.json({ message: 'Welcome to the Express + TypeScript Backend!' })
-})
-
-app.get('/health', (req: Request, res: Response): void => {
-  res.status(200).send('OK')
-})
-
 const httpServer = createServer(app)
 
 initSocket(httpServer)
 
 cron.schedule('0 3 * * *', () => {
   cleanupExpiredTokens()
-    .then(({ tokens, refreshTokens }) =>
-      console.log(`[cleanup] deleted tokens=${tokens} refresh_tokens=${refreshTokens}`),
-    )
-    .catch((err) => console.error('[cleanup] failed:', err))
+    .then(({ tokens, refreshTokens }) => logger.info({ tokens, refreshTokens }, 'expired token cleanup finished'))
+    .catch((err: unknown) => logger.error({ err }, 'expired token cleanup failed'))
 })
 
-httpServer.listen(PORT, (): void => {
-  console.log(`Server running on http://localhost:${PORT}`)
+httpServer.listen(env.PORT, (): void => {
+  logger.info({ port: env.PORT, env: env.NODE_ENV }, 'server started')
 })

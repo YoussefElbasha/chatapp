@@ -11,19 +11,16 @@ export const insertMessage = async (
 ): Promise<MessageDb> => {
   const embeds = embedsJson ? (JSON.parse(embedsJson) as Embed[]) : null
 
-  const rows = await getDb()
-    .insert(messages)
-    .values({ roomId, userId, content, embeds })
-    .returning({
-      id: messages.id,
-      room_id: messages.roomId,
-      user_id: messages.userId,
-      content: messages.content,
-      embeds: messages.embeds,
-      is_edited: messages.isEdited,
-      is_deleted: messages.isDeleted,
-      created_at: messages.createdAt,
-    })
+  const rows = await getDb().insert(messages).values({ roomId, userId, content, embeds }).returning({
+    id: messages.id,
+    room_id: messages.roomId,
+    user_id: messages.userId,
+    content: messages.content,
+    embeds: messages.embeds,
+    is_edited: messages.isEdited,
+    is_deleted: messages.isDeleted,
+    created_at: messages.createdAt,
+  })
 
   const row = rows[0]
   return {

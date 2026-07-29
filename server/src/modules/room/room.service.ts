@@ -3,10 +3,7 @@ import { AppError } from 'shared/utils/errors/app-error'
 
 import { createDMRoom, findDMRoom } from './room.repository'
 
-export const findOrCreateDMRoomService = async (
-  senderId: string,
-  receiverId: string,
-): Promise<string> => {
+export const findOrCreateDMRoomService = async (senderId: string, receiverId: string): Promise<string> => {
   try {
     return await getDb().transaction(async (tx) => {
       const existingRoomId = await findDMRoom(tx, senderId, receiverId)

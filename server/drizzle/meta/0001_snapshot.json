@@ -41,12 +41,8 @@
           "name": "friend_requests_sender_id_fkey",
           "tableFrom": "friend_requests",
           "tableTo": "users",
-          "columnsFrom": [
-            "sender_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["sender_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -54,12 +50,8 @@
           "name": "friend_requests_receiver_id_fkey",
           "tableFrom": "friend_requests",
           "tableTo": "users",
-          "columnsFrom": [
-            "receiver_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["receiver_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -69,10 +61,7 @@
         "friend_requests_sender_id_receiver_id_key": {
           "name": "friend_requests_sender_id_receiver_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "sender_id",
-            "receiver_id"
-          ]
+          "columns": ["sender_id", "receiver_id"]
         }
       },
       "policies": {},
@@ -142,12 +131,8 @@
           "name": "friends_user1_id_fkey",
           "tableFrom": "friends",
           "tableTo": "users",
-          "columnsFrom": [
-            "user1_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user1_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -155,12 +140,8 @@
           "name": "friends_user2_id_fkey",
           "tableFrom": "friends",
           "tableTo": "users",
-          "columnsFrom": [
-            "user2_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user2_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -168,10 +149,7 @@
       "compositePrimaryKeys": {
         "friends_pkey": {
           "name": "friends_pkey",
-          "columns": [
-            "user2_id",
-            "user1_id"
-          ]
+          "columns": ["user2_id", "user1_id"]
         }
       },
       "uniqueConstraints": {},
@@ -253,12 +231,8 @@
           "name": "invites_created_by_fkey",
           "tableFrom": "invites",
           "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -268,9 +242,7 @@
         "invites_code_key": {
           "name": "invites_code_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "code"
-          ]
+          "columns": ["code"]
         }
       },
       "policies": {},
@@ -379,12 +351,8 @@
           "name": "messages_channel_id_fkey",
           "tableFrom": "messages",
           "tableTo": "rooms",
-          "columnsFrom": [
-            "room_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["room_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -392,12 +360,8 @@
           "name": "messages_user_id_fkey",
           "tableFrom": "messages",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -491,12 +455,8 @@
           "name": "password_history_user_id_fkey",
           "tableFrom": "password_history",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -595,12 +555,8 @@
           "name": "refresh_tokens_user_id_fkey",
           "tableFrom": "refresh_tokens",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -610,9 +566,7 @@
         "refresh_tokens_token_hash_key": {
           "name": "refresh_tokens_token_hash_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "token_hash"
-          ]
+          "columns": ["token_hash"]
         }
       },
       "policies": {},
@@ -649,12 +603,8 @@
           "name": "room_members_room_id_fkey",
           "tableFrom": "room_members",
           "tableTo": "rooms",
-          "columnsFrom": [
-            "room_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["room_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -662,12 +612,8 @@
           "name": "room_members_user_id_fkey",
           "tableFrom": "room_members",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -675,10 +621,7 @@
       "compositePrimaryKeys": {
         "room_members_pkey": {
           "name": "room_members_pkey",
-          "columns": [
-            "user_id",
-            "room_id"
-          ]
+          "columns": ["user_id", "room_id"]
         }
       },
       "uniqueConstraints": {},
@@ -777,12 +720,8 @@
           "name": "channels_server_id_fkey",
           "tableFrom": "rooms",
           "tableTo": "servers",
-          "columnsFrom": [
-            "server_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["server_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -790,12 +729,8 @@
           "name": "rooms_owner_fkey",
           "tableFrom": "rooms",
           "tableTo": "users",
-          "columnsFrom": [
-            "owner_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -876,12 +811,8 @@
           "name": "server_members_server_id_fkey",
           "tableFrom": "server_members",
           "tableTo": "servers",
-          "columnsFrom": [
-            "server_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["server_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -889,12 +820,8 @@
           "name": "server_members_user_id_fkey",
           "tableFrom": "server_members",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -902,10 +829,7 @@
       "compositePrimaryKeys": {
         "server_members_pkey": {
           "name": "server_members_pkey",
-          "columns": [
-            "user_id",
-            "server_id"
-          ]
+          "columns": ["user_id", "server_id"]
         }
       },
       "uniqueConstraints": {},
@@ -989,12 +913,8 @@
           "name": "servers_owner_id_fkey",
           "tableFrom": "servers",
           "tableTo": "users",
-          "columnsFrom": [
-            "owner_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -1004,9 +924,7 @@
         "servers_invite_code_key": {
           "name": "servers_invite_code_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "invite_code"
-          ]
+          "columns": ["invite_code"]
         }
       },
       "policies": {},
@@ -1098,12 +1016,8 @@
           "name": "fk_tokens_user",
           "tableFrom": "tokens",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1113,9 +1027,7 @@
         "tokens_token_hash_key": {
           "name": "tokens_token_hash_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "token_hash"
-          ]
+          "columns": ["token_hash"]
         }
       },
       "policies": {},
@@ -1251,17 +1163,12 @@
         "users_email_key": {
           "name": "users_email_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         },
         "users_username_discriminator_key": {
           "name": "users_username_discriminator_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "username",
-            "discriminator"
-          ]
+          "columns": ["username", "discriminator"]
         }
       },
       "policies": {},
@@ -1278,10 +1185,7 @@
     "public.token_type": {
       "name": "token_type",
       "schema": "public",
-      "values": [
-        "password_reset",
-        "email_verification"
-      ]
+      "values": ["password_reset", "email_verification"]
     }
   },
   "schemas": {},

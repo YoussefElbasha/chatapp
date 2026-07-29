@@ -1,6 +1,6 @@
-import { lt } from 'drizzle-orm'
 import { getDb } from 'db/client'
 import { refreshTokens, tokens } from 'db/schema'
+import { lt } from 'drizzle-orm'
 
 export const cleanupExpiredTokens = async (): Promise<{ tokens: number; refreshTokens: number }> => {
   const now = new Date()

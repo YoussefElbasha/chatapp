@@ -1,32 +1,44 @@
-import jwt from 'jsonwebtoken'
+import { env } from 'config/env'
 import crypto from 'crypto'
-import { insertRefreshToken } from './token.repository'
-import type { TokenPair, InsertRefreshTokenDto } from './token.types'
-import { hashToken } from 'shared/utils/tokens'
+import { getDb } from 'db/client'
+import jwt from 'jsonwebtoken'
+import { generateOpaqueToken, hashToken } from 'shared/utils/tokens'
+
+import { insertOneTimeToken, insertRefreshToken } from './token.repository'
+import type { InsertRefreshTokenDto, TokenPair } from './token.types'
 
 const ACCESS_TOKEN_EXPIRY = '15m'
 const REFRESH_TOKEN_EXPIRY = '30d'
 const REFRESH_TOKEN_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000
+const RESET_PASSWORD_TOKEN_EXPIRY_MS = 60 * 60 * 1000
 
-export const getAccessSecret = (): string => {
-  const secret = process.env.JWT_ACCESS_SECRET
-  if (!secret) throw new Error('JWT_ACCESS_SECRET is not defined')
-  return secret
+export const verifyAccessToken = (token: string): { userId: string } => {
+  const payload = jwt.verify(token, env.JWT_ACCESS_SECRET) as { userId?: unknown }
+
+  if (typeof payload.userId !== 'string' || !payload.userId) {
+    throw new jwt.JsonWebTokenError('Token is missing a user id')
+  }
+
+  return { userId: payload.userId }
 }
 
-export const getRefreshSecret = (): string => {
-  const secret = process.env.JWT_REFRESH_SECRET
-  if (!secret) throw new Error('JWT_REFRESH_SECRET is not defined')
-  return secret
+export const verifyRefreshToken = (token: string): { userId: string } => {
+  const payload = jwt.verify(token, env.JWT_REFRESH_SECRET) as { userId?: unknown }
+
+  if (typeof payload.userId !== 'string' || !payload.userId) {
+    throw new jwt.JsonWebTokenError('Token is missing a user id')
+  }
+
+  return { userId: payload.userId }
 }
 
 export const generateTokenPair = async (
   userId: string,
   dto?: Pick<InsertRefreshTokenDto, 'ipAddress' | 'userAgent'>,
 ): Promise<TokenPair> => {
-  const accessToken = jwt.sign({ userId }, getAccessSecret(), { expiresIn: ACCESS_TOKEN_EXPIRY })
+  const accessToken = jwt.sign({ userId }, env.JWT_ACCESS_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY })
 
-  const refreshToken = jwt.sign({ userId }, getRefreshSecret(), {
+  const refreshToken = jwt.sign({ userId }, env.JWT_REFRESH_SECRET, {
     expiresIn: REFRESH_TOKEN_EXPIRY,
     jwtid: crypto.randomUUID(),
   })
@@ -44,4 +56,28 @@ export const generateTokenPair = async (
   })
 
   return { accessToken, refreshToken }
+}
+
+export const generatePasswordResetToken = async (
+  userId: string,
+  meta?: { ipAddress?: string; userAgent?: string },
+  db: ReturnType<typeof getDb> = getDb(),
+) => {
+  const token = generateOpaqueToken()
+  const tokenHash = hashToken(token)
+  const expiresAt = new Date(Date.now() + RESET_PASSWORD_TOKEN_EXPIRY_MS)
+
+  await insertOneTimeToken(
+    {
+      userId,
+      tokenHash,
+      type: 'password_reset',
+      expiresAt,
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+    },
+    db,
+  )
+
+  return token
 }

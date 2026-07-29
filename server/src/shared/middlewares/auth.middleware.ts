@@ -1,27 +1,25 @@
-import { Request, Response, NextFunction } from 'express'
+import { type NextFunction, type Request, type Response } from 'express'
 import jwt from 'jsonwebtoken'
+import { verifyAccessToken } from 'modules/auth/token.service'
 import { AppError } from 'shared/utils/errors/app-error'
 
-export const authHandler = (req: Request, res: Response, next: NextFunction) => {
-  const authHeader = req.headers.authorization
+const readBearerToken = (authHeader: string | undefined): string | null => {
+  if (!authHeader) return null
 
-  if (!authHeader || (!authHeader.startsWith('Bearer ') && !authHeader.startsWith('bearer '))) {
-    throw new AppError('Unauthorized', 401)
-  }
+  const [scheme, token] = authHeader.split(' ')
 
-  const token = authHeader.split(' ')[1]
+  if (scheme.toLowerCase() !== 'bearer') return null
 
-  if (!token) throw new AppError('Unauthorized', 401)
+  return token || null
+}
 
-  const secret = process.env.JWT_ACCESS_SECRET
+export const authHandler = (req: Request, _res: Response, next: NextFunction) => {
+  const token = readBearerToken(req.headers.authorization)
 
-  if (!secret) throw new AppError('Internal Server Error', 500)
+  if (!token) return next(new AppError('Unauthorized', 401))
 
   try {
-    const payload = jwt.verify(token, secret) as { userId: string }
-
-    req.userId = payload.userId
-
+    req.userId = verifyAccessToken(token).userId
     return next()
   } catch (err) {
     if (err instanceof jwt.TokenExpiredError) return next(new AppError('Token expired', 401))
