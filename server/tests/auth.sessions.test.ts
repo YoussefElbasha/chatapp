@@ -94,8 +94,12 @@ describe('change password', () => {
       newPassword: 'BrandNewPass2@',
     })
 
+    // Sessions are retired by backdating rather than deletion, so a replayed token
+    // reads as "expired" instead of "stolen". What matters is that none still work.
     const remaining = await getDb().select().from(refreshTokens).where(eq(refreshTokens.userId, user.user.id))
-    expect(remaining).toHaveLength(0)
+    expect(remaining.every((row) => row.expiresAt <= new Date())).toBe(true)
+
+    await expect(refreshTokenService(user.refreshToken)).rejects.toThrow('Unauthorized')
   })
 
   it('refuses a password the user has had before', async () => {

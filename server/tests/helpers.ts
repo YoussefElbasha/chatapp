@@ -1,7 +1,7 @@
 import { getDb, getPool } from 'db/client'
 import { tokens, users } from 'db/schema'
 import { eq } from 'drizzle-orm'
-import { registerService } from 'modules/auth/auth.service'
+import { loginService, registerService } from 'modules/auth/auth.service'
 import { expect } from 'vitest'
 
 import { TEST_SCHEMA } from './test-db'
@@ -22,19 +22,49 @@ export const resetDatabase = async (): Promise<void> => {
   await getPool().query(`TRUNCATE ${names} RESTART IDENTITY CASCADE`)
 }
 
+/**
+ * A registered, verified, logged-in account — the state most tests want to start
+ * from. Registration deliberately hands back no session now, so getting a token
+ * pair means going through the gate the same way a real client does.
+ */
 export const createUser = async (password: string = VALID_PASSWORD) => {
   counter += 1
 
   const email = `user${counter}.${Date.now()}@example.com`
 
-  const result = await registerService({
+  const { user } = await registerService({
     email,
     username: `user${counter}${Date.now().toString().slice(-5)}`,
     password,
     displayName: undefined,
   })
 
-  return { ...result, email, password }
+  await verifyUser(user.id)
+
+  const { accessToken, refreshToken } = await loginService({ email, password })
+
+  return { user, accessToken, refreshToken, email, password }
+}
+
+/** Confirms an address without going through the emailed link. */
+export const verifyUser = async (userId: string): Promise<void> => {
+  await getDb().update(users).set({ emailVerified: true }).where(eq(users.id, userId))
+}
+
+/** Registers without verifying, for tests that care about the unverified state. */
+export const createUnverifiedUser = async (password: string = VALID_PASSWORD) => {
+  counter += 1
+
+  const email = `user${counter}.${Date.now()}@example.com`
+
+  const { user } = await registerService({
+    email,
+    username: `user${counter}${Date.now().toString().slice(-5)}`,
+    password,
+    displayName: undefined,
+  })
+
+  return { user, email, password }
 }
 
 export const deactivateUser = async (userId: string): Promise<void> => {

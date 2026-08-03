@@ -1,7 +1,12 @@
 import { getDb } from 'db/client'
 import { refreshTokens } from 'db/schema'
 import { eq } from 'drizzle-orm'
-import { forgotPasswordService, loginService, resetPasswordService } from 'modules/auth/auth.service'
+import {
+  forgotPasswordService,
+  loginService,
+  refreshTokenService,
+  resetPasswordService,
+} from 'modules/auth/auth.service'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -99,8 +104,12 @@ describe('password reset', () => {
     const token = await requestResetToken(user.email)
     await resetPasswordService({ token, newPassword: NEW_PASSWORD })
 
+    // Sessions are retired by backdating rather than deletion, so a replayed token
+    // reads as "expired" instead of "stolen". What matters is that none still work.
     const after = await getDb().select().from(refreshTokens).where(eq(refreshTokens.userId, user.user.id))
-    expect(after).toHaveLength(0)
+    expect(after.every((row) => row.expiresAt <= new Date())).toBe(true)
+
+    await expect(refreshTokenService(user.refreshToken)).rejects.toThrow('Unauthorized')
   })
 
   it('kills the previous link when a new one is requested', async () => {

@@ -5,12 +5,15 @@ import {
   createUser,
   findUserByEmail,
   findUserCredentialsById,
+  lockUserRow,
+  markEmailVerified,
   updateLastLoginAt,
+  updateLastLogoutAt,
   updatePasswordHash,
 } from 'modules/user/user.repository'
 import { type CreatedUser } from 'modules/user/user.types'
 import { getAppUrl } from 'shared/email/client'
-import { sendPasswordChangedEmail, sendPasswordResetEmail } from 'shared/email/email.service'
+import { sendPasswordChangedEmail, sendPasswordResetEmail, sendVerificationEmail } from 'shared/email/email.service'
 import { audit } from 'shared/logger/audit'
 import { logger } from 'shared/logger/logger'
 import { AppError } from 'shared/utils/errors/app-error'
@@ -23,14 +26,20 @@ import {
   type PasswordHistoryRow,
 } from './password-history.repository'
 import {
+  claimRefreshToken,
   consumeOneTimeToken,
   deleteAllRefreshTokensByUserId,
-  deleteRefreshTokenByHash,
-  findRefreshTokenByHash,
+  expireRefreshTokenByHash,
+  expireRefreshTokensByUserId,
   findValidOneTimeTokenByHash,
   markPendingTokensUsed,
 } from './token.repository'
-import { generatePasswordResetToken, generateTokenPair, verifyRefreshToken } from './token.service'
+import {
+  generateEmailVerificationToken,
+  generatePasswordResetToken,
+  generateTokenPair,
+  verifyRefreshToken,
+} from './token.service'
 import { type TokenPair } from './token.types'
 
 const DUMMY_BCRYPT_HASH = '$2b$12$fE35fVzqo6vVxL0FpaB7GO8dlVZWpALxLJHUTJJPIFmU0Hjfg89nW'
@@ -38,6 +47,8 @@ const DUMMY_BCRYPT_HASH = '$2b$12$fE35fVzqo6vVxL0FpaB7GO8dlVZWpALxLJHUTJJPIFmU0H
 const MAX_DISCRIMINATOR_ATTEMPTS = 5
 
 const PASSWORD_RESET_TOKEN = 'password_reset'
+
+const EMAIL_VERIFICATION_TOKEN = 'email_verification'
 
 const BCRYPT_COST = 12
 
@@ -60,13 +71,20 @@ const savePasswordAndSignOutEverywhere = async (
 ): Promise<void> => {
   await updatePasswordHash(userId, passwordHash, tx)
   await insertPasswordHistory(userId, passwordHash, tx)
-  await deleteAllRefreshTokensByUserId(userId, tx)
+  await expireRefreshTokensByUserId(userId, tx)
+  // Access tokens are self-contained, so cutting the refresh tokens alone would
+  // leave a stolen one working for up to another 15 minutes — exactly the window a
+  // password reset is meant to close.
+  await updateLastLogoutAt(userId, tx)
+  // A reset link the user requested minutes ago is still live for the rest of its
+  // hour. Whoever just proved they know the password gets to retire it.
+  await markPendingTokensUsed(userId, PASSWORD_RESET_TOKEN, tx)
 }
 
 export const registerService = async (
   dto: RegisterDto,
   meta?: { ipAddress?: string; userAgent?: string },
-): Promise<{ user: CreatedUser } & TokenPair> => {
+): Promise<{ user: CreatedUser }> => {
   const { email, password, username, displayName } = dto
 
   const alreadyExists = await findUserByEmail(email)
@@ -97,9 +115,15 @@ export const registerService = async (
 
   if (!user) throw new AppError('Invalid email or username or password', 400)
 
-  const tokens = await generateTokenPair(user.id, meta)
+  // No session here: login refuses unverified accounts, so handing out a token pair
+  // at registration would be a way around the gate rather than a convenience.
+  const created = user
 
-  return { user, ...tokens }
+  void issueAndSendVerification(created.id, created.email, meta).catch((err: unknown) =>
+    logger.error({ err, userId: created.id }, 'verification issue/send failed'),
+  )
+
+  return { user: created }
 }
 
 export const loginService = async (
@@ -118,6 +142,15 @@ export const loginService = async (
     throw new AppError('Invalid email or username or password', 401)
   }
 
+  // Deliberately a distinct, specific error. It only fires once the password has
+  // already checked out, so it tells an attacker nothing they did not just prove
+  // they knew — and the client needs to tell these two failures apart to send the
+  // user to a "check your inbox" screen instead of "wrong password".
+  if (!user.email_verified) {
+    audit('login.failed', { userId: user.id, email: user.email, reason: 'unverified_email', ...meta })
+    throw new AppError('Email not verified', 403, 'EMAIL_NOT_VERIFIED')
+  }
+
   void updateLastLoginAt(user.id).catch((e: unknown) => logger.error({ err: e }, 'updateLastLoginAt failed'))
 
   const tokens = await generateTokenPair(user.id, meta)
@@ -132,13 +165,16 @@ export const logoutService = async (refreshToken: string) => {
 
   const tokenHash = hashToken(refreshToken)
 
-  await deleteRefreshTokenByHash(tokenHash)
+  await expireRefreshTokenByHash(tokenHash)
 }
 
 export const logoutAllService = async (userId: string) => {
   if (!userId) return
 
-  await deleteAllRefreshTokensByUserId(userId)
+  await getDb().transaction(async (tx) => {
+    await expireRefreshTokensByUserId(userId, tx)
+    await updateLastLogoutAt(userId, tx)
+  })
 
   audit('logout.all', { userId })
 }
@@ -237,20 +273,88 @@ export const refreshTokenService = async (
   }
 
   const tokenHash = hashToken(refreshToken)
-  const existingToken = await findRefreshTokenByHash(tokenHash)
 
-  if (!existingToken) {
+  // The whole rotation runs under a lock on the account row. Claiming the token is
+  // already atomic on its own, but without the lock a losing request can burn every
+  // session in the gap between the winner claiming its token and inserting the
+  // replacement — leaving a live session behind precisely when reuse was detected.
+  const outcome = await getDb().transaction(
+    async (tx): Promise<{ reused: true } | { reused: false; tokens: TokenPair | null }> => {
+      await lockUserRow(verified.userId, tx)
+
+      const claimed = await claimRefreshToken(tokenHash, tx)
+
+      if (!claimed) {
+        // Nothing to claim means this token was already rotated away and someone is
+        // replaying a copy. Tokens retired by logout or a password change leave an
+        // expired row behind and land in the branch below, so this really is theft
+        // rather than a stale tab.
+        await deleteAllRefreshTokensByUserId(verified.userId, tx)
+        return { reused: true }
+      }
+
+      // Retired normally, or simply aged out. A plain refusal, no alarm.
+      if (claimed.expiresAt < new Date()) return { reused: false, tokens: null }
+
+      return { reused: false, tokens: await generateTokenPair(claimed.userId, meta, tx) }
+    },
+  )
+
+  if (outcome.reused) {
     audit('refresh.reused', { userId: verified.userId, ...meta })
-    await deleteAllRefreshTokensByUserId(verified.userId)
     throw new AppError('Unauthorized', 401)
   }
 
-  if (existingToken.expiresAt < new Date()) {
-    await deleteRefreshTokenByHash(tokenHash)
-    throw new AppError('Unauthorized', 401)
-  }
+  if (!outcome.tokens) throw new AppError('Unauthorized', 401)
 
-  await deleteRefreshTokenByHash(tokenHash)
+  return outcome.tokens
+}
 
-  return generateTokenPair(existingToken.userId, meta)
+const issueAndSendVerification = async (
+  userId: string,
+  email: string,
+  meta?: { ipAddress?: string; userAgent?: string },
+): Promise<void> => {
+  const token = await getDb().transaction(async (tx) => {
+    await markPendingTokensUsed(userId, EMAIL_VERIFICATION_TOKEN, tx)
+    return generateEmailVerificationToken(userId, meta, tx)
+  })
+
+  await sendVerificationEmail(email, `${getAppUrl()}/verify-email?token=${token}`)
+
+  audit('email.verification.sent', { userId, email, ...meta })
+}
+
+export const verifyEmailService = async (token: string) => {
+  const verificationToken = await findValidOneTimeTokenByHash(hashToken(token), EMAIL_VERIFICATION_TOKEN)
+  if (!verificationToken) throw new AppError('Invalid or expired token', 400)
+
+  const user = await findUserCredentialsById(verificationToken.userId)
+  if (!user || !user.is_active) throw new AppError('Invalid or expired token', 400)
+
+  // Same claim-then-write shape as the password reset: the conditional update is
+  // what makes a double submit resolve to exactly one winner.
+  const weClaimedTheToken = await getDb().transaction(async (tx) => {
+    const claimed = await consumeOneTimeToken(verificationToken.id, tx)
+    if (!claimed) return false
+
+    await markEmailVerified(user.id, tx)
+    return true
+  })
+
+  if (!weClaimedTheToken) throw new AppError('Invalid or expired token', 400)
+
+  audit('email.verified', { userId: user.id, email: user.email })
+}
+
+export const resendVerificationService = async (email: string, meta?: { ipAddress?: string; userAgent?: string }) => {
+  const user = await findUserByEmail(email)
+
+  // Silent in every branch, like forgot-password: whether an address is registered,
+  // active or already verified is not something an unauthenticated caller may probe.
+  if (!user || !user.is_active || user.email_verified) return
+
+  void issueAndSendVerification(user.id, user.email, meta).catch((err: unknown) =>
+    logger.error({ err, userId: user.id }, 'resend-verification issue/send failed'),
+  )
 }

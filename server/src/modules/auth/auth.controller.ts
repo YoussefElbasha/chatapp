@@ -8,7 +8,9 @@ import {
   forgotPasswordSchema,
   loginSchema,
   registerSchema,
+  resendVerificationSchema,
   resetPasswordSchema,
+  verifyEmailSchema,
 } from './auth.schema'
 import {
   changePasswordService,
@@ -18,7 +20,9 @@ import {
   logoutService,
   refreshTokenService,
   registerService,
+  resendVerificationService,
   resetPasswordService,
+  verifyEmailService,
 } from './auth.service'
 
 export const registerController = async (req: Request, res: Response, next: NextFunction) => {
@@ -34,11 +38,11 @@ export const registerController = async (req: Request, res: Response, next: Next
       userAgent: req.headers['user-agent'],
     }
 
-    const { user, accessToken, refreshToken } = await registerService(parsed.data, meta)
+    // No session is handed back here — the account cannot be used until the address
+    // is confirmed, so the client's next screen is "check your inbox", not the app.
+    const { user } = await registerService(parsed.data, meta)
 
-    res.cookie('refreshToken', refreshToken, REFRESH_TOKEN_COOKIE_OPTIONS)
-
-    return res.status(201).json({ message: 'Account created successfully', user, accessToken })
+    return res.status(201).json({ message: 'Account created. Check your email to verify your address.', user })
   } catch (err) {
     return next(err)
   }
@@ -130,6 +134,43 @@ export const resetPasswordController = async (req: Request, res: Response, next:
     res.clearCookie('refreshToken', REFRESH_TOKEN_COOKIE_OPTIONS)
 
     return res.status(200).json({ message: 'Password reset successfully' })
+  } catch (err) {
+    return next(err)
+  }
+}
+
+export const verifyEmailController = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const parsed = verifyEmailSchema.safeParse(req.body)
+
+    if (!parsed.success) return res.status(400).json({ message: 'Invalid or missing token' })
+
+    await verifyEmailService(parsed.data.token)
+
+    return res.status(200).json({ message: 'Email verified successfully' })
+  } catch (err) {
+    return next(err)
+  }
+}
+
+export const resendVerificationController = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const parsed = resendVerificationSchema.safeParse(req.body)
+
+    if (!parsed.success) {
+      return res.status(400).json({ message: 'Validation failed', errors: z.treeifyError(parsed.error) })
+    }
+
+    const meta = {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    }
+
+    await resendVerificationService(parsed.data.email, meta)
+
+    return res
+      .status(200)
+      .json({ message: 'If that account exists and is unverified, a new verification link has been sent.' })
   } catch (err) {
     return next(err)
   }

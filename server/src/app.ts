@@ -4,20 +4,20 @@ import cookieParser from 'cookie-parser'
 import cors from 'cors'
 import express, { type Request, type Response } from 'express'
 import helmet from 'helmet'
-import { createServer } from 'http'
 import authRoutes from 'modules/auth/auth.routes'
-import { cleanupExpiredTokens } from 'modules/auth/cleanup'
 import messageRoutes from 'modules/message/message.routes'
 import roomRoutes from 'modules/room/room.routes'
 import userRoutes from 'modules/user/user.routes'
-import cron from 'node-cron'
 import { pinoHttp } from 'pino-http'
 import { logger } from 'shared/logger/logger'
 import { errorHandler } from 'shared/middlewares/error.middleware.js'
-import { initSocket } from 'shared/socket/index.js'
 import { corsOptions } from 'shared/utils/cors-options'
 
-const app = express()
+// Everything that makes up the API, and nothing that binds a port or starts a
+// timer. Keeping those in server.ts is what lets a test import the app, mount it
+// on an ephemeral port and exercise the middleware stack — the layer where
+// cookies, rate limits and the error handler actually live.
+export const app = express()
 
 // When we sit behind a proxy (nginx, Render, Fly, Cloudflare...), the caller's
 // real address arrives in the X-Forwarded-For header instead of the socket.
@@ -50,16 +50,4 @@ app.use('/api/v1/auth', authRoutes)
 
 app.use(errorHandler)
 
-const httpServer = createServer(app)
-
-initSocket(httpServer)
-
-cron.schedule('0 3 * * *', () => {
-  cleanupExpiredTokens()
-    .then(({ tokens, refreshTokens }) => logger.info({ tokens, refreshTokens }, 'expired token cleanup finished'))
-    .catch((err: unknown) => logger.error({ err }, 'expired token cleanup failed'))
-})
-
-httpServer.listen(env.PORT, (): void => {
-  logger.info({ port: env.PORT, env: env.NODE_ENV }, 'server started')
-})
+export default app

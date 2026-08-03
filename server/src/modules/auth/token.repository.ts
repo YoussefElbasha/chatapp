@@ -1,6 +1,6 @@
 import { getDb } from 'db/client'
 import { refreshTokens, tokens } from 'db/schema'
-import { and, eq, gt, isNull, ne } from 'drizzle-orm'
+import { and, eq, gt, isNull } from 'drizzle-orm'
 
 import type {
   InsertOneTimeTokenDto,
@@ -10,8 +10,11 @@ import type {
   TokenType,
 } from './token.types'
 
-export const insertRefreshToken = async (dto: InsertRefreshTokenDto): Promise<void> => {
-  await getDb()
+export const insertRefreshToken = async (
+  dto: InsertRefreshTokenDto,
+  db: ReturnType<typeof getDb> = getDb(),
+): Promise<void> => {
+  await db
     .insert(refreshTokens)
     .values({
       userId: dto.userId,
@@ -22,14 +25,41 @@ export const insertRefreshToken = async (dto: InsertRefreshTokenDto): Promise<vo
     })
 }
 
-export const findRefreshTokenByHash = async (tokenHash: string): Promise<RefreshTokenDb | null> => {
-  const rows = await getDb().select().from(refreshTokens).where(eq(refreshTokens.tokenHash, tokenHash)).limit(1)
+/**
+ * Takes a refresh token out of circulation and reports whether *we* were the ones
+ * who took it. The delete and the read are one statement on purpose: Postgres locks
+ * the row, so when the same token arrives twice at once exactly one caller gets a
+ * row back and the other gets null. Splitting this into a select-then-delete lets
+ * both callers through, which is precisely the theft that rotation exists to catch.
+ */
+export const claimRefreshToken = async (
+  tokenHash: string,
+  db: ReturnType<typeof getDb> = getDb(),
+): Promise<RefreshTokenDb | null> => {
+  const rows = await db.delete(refreshTokens).where(eq(refreshTokens.tokenHash, tokenHash)).returning()
 
   return rows[0] ?? null
 }
 
-export const deleteRefreshTokenByHash = async (tokenHash: string): Promise<void> => {
-  await getDb().delete(refreshTokens).where(eq(refreshTokens.tokenHash, tokenHash))
+/**
+ * Retires a token by backdating it rather than deleting it.
+ *
+ * The distinction carries meaning: a *missing* row means the token was rotated away
+ * and anyone still holding it is replaying a stolen copy, so we burn every session.
+ * A row that is merely expired means the user logged out or changed their password
+ * normally, which deserves a plain 401 and nothing more. Delete on those paths and
+ * the two cases become indistinguishable, so a logged-out tab replaying its own
+ * token would sign the user out everywhere. The nightly cleanup reaps these rows.
+ */
+export const expireRefreshTokenByHash = async (tokenHash: string): Promise<void> => {
+  await getDb().update(refreshTokens).set({ expiresAt: new Date() }).where(eq(refreshTokens.tokenHash, tokenHash))
+}
+
+export const expireRefreshTokensByUserId = async (
+  userId: string,
+  db: ReturnType<typeof getDb> = getDb(),
+): Promise<void> => {
+  await db.update(refreshTokens).set({ expiresAt: new Date() }).where(eq(refreshTokens.userId, userId))
 }
 
 export const deleteAllRefreshTokensByUserId = async (
@@ -37,12 +67,6 @@ export const deleteAllRefreshTokensByUserId = async (
   db: ReturnType<typeof getDb> = getDb(),
 ): Promise<void> => {
   await db.delete(refreshTokens).where(eq(refreshTokens.userId, userId))
-}
-
-export const deleteRefreshTokensExceptHash = async (userId: string, keepHash: string): Promise<void> => {
-  await getDb()
-    .delete(refreshTokens)
-    .where(and(eq(refreshTokens.userId, userId), ne(refreshTokens.tokenHash, keepHash)))
 }
 
 export const insertOneTimeToken = async (

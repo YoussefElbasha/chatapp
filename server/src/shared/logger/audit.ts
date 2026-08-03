@@ -15,6 +15,8 @@ export type AuditEvent =
   | 'password.reset.requested'
   | 'password.reset.completed'
   | 'refresh.reused'
+  | 'email.verification.sent'
+  | 'email.verified'
 
 type AuditDetails = {
   /** Who it happened to, when we know. Failed logins often have no user. */

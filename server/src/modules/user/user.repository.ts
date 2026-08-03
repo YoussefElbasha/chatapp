@@ -17,7 +17,10 @@ const userColumns = {
   status: users.status,
   email_verified: users.emailVerified,
   is_active: users.isActive,
+  last_login_at: users.lastLoginAt,
   last_logout_at: users.lastLogoutAt,
+  created_at: users.createdAt,
+  updated_at: users.updatedAt,
 }
 
 export const findUserById = async (id: string): Promise<UserDb | null> => {
@@ -127,6 +130,40 @@ export const findUserCredentialsById = async (
   return rows[0] ?? null
 }
 
-export const markEmailVerified = async (id: string): Promise<void> => {
-  await getDb().update(users).set({ emailVerified: true, updatedAt: new Date() }).where(eq(users.id, id))
+export const markEmailVerified = async (id: string, db: ReturnType<typeof getDb> = getDb()): Promise<void> => {
+  await db.update(users).set({ emailVerified: true, updatedAt: new Date() }).where(eq(users.id, id))
+}
+
+/**
+ * Marks everything issued before now as no longer trustworthy. Access tokens are
+ * self-contained, so this timestamp is the only way an already-signed one can be
+ * turned down before it expires on its own.
+ */
+export const updateLastLogoutAt = async (id: string, db: ReturnType<typeof getDb> = getDb()): Promise<void> => {
+  await db.update(users).set({ lastLogoutAt: new Date() }).where(eq(users.id, id))
+}
+
+/**
+ * Takes an exclusive lock on the account row for the rest of the transaction.
+ *
+ * Used to serialise refresh-token rotation: without it, two requests racing with
+ * the same token can interleave so that the loser's "burn every session" runs
+ * before the winner inserts its replacement, leaving a live session behind after
+ * reuse was already detected.
+ */
+export const lockUserRow = async (id: string, db: ReturnType<typeof getDb> = getDb()): Promise<void> => {
+  await db.select({ id: users.id }).from(users).where(eq(users.id, id)).for('update')
+}
+
+/** The per-request check behind a bearer token: is this account still allowed in? */
+export const findUserAuthStateById = async (
+  id: string,
+): Promise<{ is_active: boolean; last_logout_at: Date | null } | null> => {
+  const rows = await getDb()
+    .select({ is_active: users.isActive, last_logout_at: users.lastLogoutAt })
+    .from(users)
+    .where(eq(users.id, id))
+    .limit(1)
+
+  return rows[0] ?? null
 }

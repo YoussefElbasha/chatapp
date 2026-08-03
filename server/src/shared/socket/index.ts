@@ -1,4 +1,5 @@
 import type { Server as HttpServer } from 'http'
+import { isTokenRevoked } from 'modules/auth/revocation'
 import { verifyAccessToken } from 'modules/auth/token.service'
 import type { ClientToServerEvents, ServerToClientEvents, SocketData } from 'shared/types/socket'
 import { socketCorsOptions } from 'shared/utils/cors-options'
@@ -19,12 +20,21 @@ export const initSocket = (httpServer: HttpServer): ChatServer => {
       return
     }
 
-    try {
-      socket.data.userId = verifyAccessToken(token).userId
-      next()
-    } catch {
-      next(new Error('Unauthorized'))
-    }
+    void (async () => {
+      try {
+        const { userId, issuedAt } = verifyAccessToken(token)
+
+        if (await isTokenRevoked(userId, issuedAt)) {
+          next(new Error('Unauthorized'))
+          return
+        }
+
+        socket.data.userId = userId
+        next()
+      } catch {
+        next(new Error('Unauthorized'))
+      }
+    })()
   })
 
   io.on('connection', (socket) => {
